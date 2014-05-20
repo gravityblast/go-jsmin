@@ -6,7 +6,7 @@ import (
 	"log"
 )
 
-const EOF = -1
+const eof = -1
 
 type minifier struct {
 	src          *bufio.Reader
@@ -39,18 +39,18 @@ func (m *minifier) isAlphanum(c int) bool {
 // linefeed.
 func (m *minifier) get() int {
 	c := m.theLookahead
-	m.theLookahead = EOF
-	if c == EOF {
+	m.theLookahead = eof
+	if c == eof {
 		b, err := m.src.ReadByte()
 		if err == io.EOF {
-			c = EOF
+			c = eof
 		} else if err != nil {
 			log.Fatal(err)
 		} else {
 			c = int(b)
 		}
 	}
-	if c >= ' ' || c == '\n' || c == EOF {
+	if c >= ' ' || c == '\n' || c == eof {
 		return c
 	}
 	if c == '\r' {
@@ -88,7 +88,7 @@ func (m *minifier) next() int {
 						m.get()
 						c = ' '
 					}
-				case EOF:
+				case eof:
 					m.error("Unterminated comment.")
 				}
 			}
@@ -129,7 +129,7 @@ func (m *minifier) action(d int) {
 					m.putc(m.theA)
 					m.theA = m.get()
 				}
-				if m.theA == EOF {
+				if m.theA == eof {
 					m.error("Unterminated string literal.")
 				}
 			}
@@ -159,7 +159,7 @@ func (m *minifier) action(d int) {
 							m.putc(m.theA)
 							m.theA = m.get()
 						}
-						if m.theA == EOF {
+						if m.theA == eof {
 							m.error("Unterminated set in Regular Expression literal.")
 						}
 					}
@@ -173,7 +173,7 @@ func (m *minifier) action(d int) {
 					m.putc(m.theA)
 					m.theA = m.get()
 				}
-				if m.theA == EOF {
+				if m.theA == eof {
 					m.error("Unterminated Regular Expression literal.")
 				}
 				m.putc(m.theA)
@@ -195,7 +195,7 @@ func (m *minifier) min() {
 	}
 	m.theA = '\n'
 	m.action(3)
-	for m.theA != EOF {
+	for m.theA != eof {
 		switch m.theA {
 		case ' ':
 			a := 2
@@ -247,11 +247,12 @@ func newMinifier(src io.Reader, dest io.Writer) *minifier {
 	return &minifier{
 		src:  bufio.NewReader(src),
 		dest: bufio.NewWriter(dest),
-		theX: EOF,
-		theY: EOF,
+		theX: eof,
+		theY: eof,
 	}
 }
 
+// Min minifies javascript readind from src and writing to dest
 func Min(src io.Reader, dest io.Writer) {
 	m := newMinifier(src, dest)
 	m.min()
