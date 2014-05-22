@@ -28,6 +28,7 @@ var (
 
 func (m *minifier) putc(c int) {
 	m.dest.WriteByte(byte(c))
+	m.dest.Flush()
 }
 
 // isAlphanum -- return true if the character is a letter, digit, underscore,
@@ -271,7 +272,6 @@ func (m *minifier) min() error {
 			}
 		}
 	}
-	m.dest.Flush()
 
 	return nil
 }
