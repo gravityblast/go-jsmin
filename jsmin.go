@@ -2,6 +2,7 @@ package jsmin
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"log"
 )
@@ -18,9 +19,12 @@ type minifier struct {
 	theLookahead int
 }
 
-func (m *minifier) error(s string) {
-	log.Fatal(s)
-}
+var (
+	errorUnterminatedComment            = errors.New("Unterminated comment")
+	errorUnterminatedStringLiteral      = errors.New("Unterminated string literal")
+	errorUnterminatedSetInRegexpLiteral = errors.New("Unterminated set in Regular Expression literal")
+	errorUnterminatedRegexpLiteral      = errors.New("Unterminated Regular Expression literal")
+)
 
 func (m *minifier) putc(c int) {
 	m.dest.WriteByte(byte(c))
@@ -68,7 +72,7 @@ func (m *minifier) peek() int {
 
 // next -- get the next character, excluding comments. peek() is used to see
 // if a '/' is followed by a '/' or '*'.
-func (m *minifier) next() int {
+func (m *minifier) next() (int, error) {
 	c := m.get()
 	if c == '/' {
 		switch m.peek() {
@@ -89,14 +93,14 @@ func (m *minifier) next() int {
 						c = ' '
 					}
 				case eof:
-					m.error("Unterminated comment.")
+					return -1, errorUnterminatedComment
 				}
 			}
 		}
 	}
 	m.theY = m.theX
 	m.theX = c
-	return c
+	return c, nil
 
 }
 
@@ -106,7 +110,7 @@ func (m *minifier) next() int {
 // 	3   Get the next B. (Delete B).
 // action treats a string as a single character. Wow!
 // action recognizes a regular expression if it is preceded by ( or , or =.
-func (m *minifier) action(d int) {
+func (m *minifier) action(d int) error {
 	switch d {
 	case 1:
 		m.putc(m.theA)
@@ -130,13 +134,16 @@ func (m *minifier) action(d int) {
 					m.theA = m.get()
 				}
 				if m.theA == eof {
-					m.error("Unterminated string literal.")
+					return errorUnterminatedStringLiteral
 				}
 			}
 		}
 		fallthrough
 	case 3:
-		m.theB = m.next()
+		var err error
+		if m.theB, err = m.next(); err != nil {
+			return err
+		}
 		if m.theB == '/' && (m.theA == '(' || m.theA == ',' || m.theA == '=' || m.theA == ':' ||
 			m.theA == '[' || m.theA == '!' || m.theA == '&' || m.theA == '|' ||
 			m.theA == '?' || m.theA == '+' || m.theA == '-' || m.theA == '~' ||
@@ -160,13 +167,13 @@ func (m *minifier) action(d int) {
 							m.theA = m.get()
 						}
 						if m.theA == eof {
-							m.error("Unterminated set in Regular Expression literal.")
+							return errorUnterminatedSetInRegexpLiteral
 						}
 					}
 				} else if m.theA == '/' {
 					switch m.peek() {
 					case '/', '*':
-						m.error("Unterminated set in Regular Expression literal.")
+						return errorUnterminatedSetInRegexpLiteral
 					}
 					break
 				} else if m.theA == '\\' {
@@ -174,27 +181,35 @@ func (m *minifier) action(d int) {
 					m.theA = m.get()
 				}
 				if m.theA == eof {
-					m.error("Unterminated Regular Expression literal.")
+					return errorUnterminatedRegexpLiteral
 				}
 				m.putc(m.theA)
 			}
-			m.theB = m.next()
+			var err error
+			if m.theB, err = m.next(); err != nil {
+				return err
+			}
 		}
 	}
+
+	return nil
 }
 
 // jsmin -- Copy the input to the output, deleting the characters which are
 // insignificant to JavaScript. Comments will be removed. Tabs will be
 // replaced with spaces. Carriage returns will be replaced with linefeeds.
 // Most spaces and linefeeds will be removed.
-func (m *minifier) min() {
+func (m *minifier) min() error {
 	if m.peek() == 0xEF {
 		m.get()
 		m.get()
 		m.get()
 	}
 	m.theA = '\n'
-	m.action(3)
+	if err := m.action(3); err != nil {
+		return err
+	}
+
 	for m.theA != eof {
 		switch m.theA {
 		case ' ':
@@ -202,19 +217,27 @@ func (m *minifier) min() {
 			if m.isAlphanum(m.theB) {
 				a = 1
 			}
-			m.action(a)
+			if err := m.action(a); err != nil {
+				return err
+			}
 		case '\n':
 			switch m.theB {
 			case '{', '[', '(', '+', '-', '!', '~':
-				m.action(1)
+				if err := m.action(1); err != nil {
+					return err
+				}
 			case ' ':
-				m.action(3)
+				if err := m.action(3); err != nil {
+					return err
+				}
 			default:
 				a := 2
 				if m.isAlphanum(m.theB) {
 					a = 1
 				}
-				m.action(a)
+				if err := m.action(a); err != nil {
+					return err
+				}
 			}
 		default:
 			switch m.theB {
@@ -223,24 +246,34 @@ func (m *minifier) min() {
 				if m.isAlphanum(m.theA) {
 					a = 1
 				}
-				m.action(a)
+				if err := m.action(a); err != nil {
+					return err
+				}
 			case '\n':
 				switch m.theA {
 				case '}', ']', ')', '+', '-', '"', '\'', '`':
-					m.action(1)
+					if err := m.action(1); err != nil {
+						return err
+					}
 				default:
 					a := 3
 					if m.isAlphanum(m.theA) {
 						a = 1
 					}
-					m.action(a)
+					if err := m.action(a); err != nil {
+						return err
+					}
 				}
 			default:
-				m.action(1)
+				if err := m.action(1); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	m.dest.Flush()
+
+	return nil
 }
 
 func newMinifier(src io.Reader, dest io.Writer) *minifier {
@@ -253,7 +286,7 @@ func newMinifier(src io.Reader, dest io.Writer) *minifier {
 }
 
 // Min minifies javascript readind from src and writing to dest
-func Min(src io.Reader, dest io.Writer) {
+func Min(src io.Reader, dest io.Writer) error {
 	m := newMinifier(src, dest)
-	m.min()
+	return m.min()
 }

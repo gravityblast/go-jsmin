@@ -54,7 +54,27 @@ if(is.ua.indexOf('gecko')>=0){is.ie=is.ns=false;is.gecko=true;}`
 
 	output := bytes.NewBufferString("")
 	m := newMinifier(bytes.NewBufferString(original), output)
-	m.min()
-
+	err := m.min()
+	assert.Nil(t, err)
 	assert.Equal(t, expected, string(output.Bytes()))
+
+	m = newMinifier(bytes.NewBufferString(`var x = 0; /*`), output)
+	err = m.min()
+	assert.NotNil(t, err)
+	assert.Equal(t, errorUnterminatedComment, err)
+
+	m = newMinifier(bytes.NewBufferString(`var x = "unterminated`), output)
+	err = m.min()
+	assert.NotNil(t, err)
+	assert.Equal(t, errorUnterminatedStringLiteral, err)
+
+	m = newMinifier(bytes.NewBufferString(`var x = /[1-2/`), output)
+	err = m.min()
+	assert.NotNil(t, err)
+	assert.Equal(t, errorUnterminatedSetInRegexpLiteral, err)
+
+	m = newMinifier(bytes.NewBufferString(`var x = /hello`), output)
+	err = m.min()
+	assert.NotNil(t, err)
+	assert.Equal(t, errorUnterminatedRegexpLiteral, err)
 }
