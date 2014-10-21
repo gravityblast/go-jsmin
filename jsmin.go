@@ -20,10 +20,10 @@ type minifier struct {
 }
 
 var (
-	errorUnterminatedComment            = errors.New("Unterminated comment")
-	errorUnterminatedStringLiteral      = errors.New("Unterminated string literal")
-	errorUnterminatedSetInRegexpLiteral = errors.New("Unterminated set in Regular Expression literal")
-	errorUnterminatedRegexpLiteral      = errors.New("Unterminated Regular Expression literal")
+	errorUnterminatedComment            = errors.New("unterminated comment")
+	errorUnterminatedStringLiteral      = errors.New("unterminated string literal")
+	errorUnterminatedSetInRegexpLiteral = errors.New("unterminated set in regular expression literal")
+	errorUnterminatedRegexpLiteral      = errors.New("unterminated regular expression literal")
 )
 
 func (m *minifier) putc(c int) {
