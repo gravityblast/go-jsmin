@@ -285,7 +285,7 @@ func newMinifier(src io.Reader, dest io.Writer) *minifier {
 	}
 }
 
-// Min minifies javascript readind from src and writing to dest
+// Min minifies javascript reading from src and writing to dest
 func Min(src io.Reader, dest io.Writer) error {
 	m := newMinifier(src, dest)
 	return m.min()
